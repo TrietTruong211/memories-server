@@ -5,6 +5,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import postRoutes from "./routes/posts.js"; //middleware for importing routes
+import userRoutes from "./routes/users.js";
 
 // the normal way
 // const express = require('express')
@@ -20,6 +21,7 @@ app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 app.use(cors());
 // cors always go before routes
 app.use("/posts", postRoutes); //adding posts prefix to all routes
+app.use("/user", userRoutes);
 
 app.use("/", (req, res) => {
   res.send("Hello to Triet's api");

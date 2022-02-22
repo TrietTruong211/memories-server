@@ -17,7 +17,11 @@ export const getPosts = async (req, res) => {
 export const createPost = async (req, res) => {
   const post = req.body;
 
-  const newPost = new PostMessage(post);
+  const newPost = new PostMessage({
+    ...post,
+    creator: req.userId,
+    createdAt: new Date().toISOString(),
+  }); //new Date().toISOString() current day
 
   // res.send({ newPost });
   try {
@@ -59,13 +63,29 @@ export const deletePost = async (req, res) => {
 
 export const likePost = async (req, res) => {
   const { id: _id } = req.params;
+
+  // req.userId was already populated by auth action, which happens before likePost
+  if (!req.userId) return res.json({ message: "Unauthenticated" });
+
   if (!mongoose.Types.ObjectId.isValid(_id))
     return res.status(404).send("No post with that id");
 
   const post = await PostMessage.findById(_id);
+
+  // find the id of this user in the post's likes
+  const index = post.likes.findIndex((id) => id === String(req.userId));
+  // if index is -1, means user hasn't liked the post, else user has already liked the post
+  if (index === -1) {
+    //  Adding user to the list of users that liked the post, allow user to like the post
+    post.likes.push(req.userId);
+  } else {
+    // Excluding user from the list of users that liked the post, allow user to dislike
+    post.likes = post.likes.filter((id) => id !== String(req.userId));
+  }
   const updatedPost = await PostMessage.findByIdAndUpdate(
     _id,
-    { likeCount: post.likeCount + 1 },
+    // { likeCount: post.likeCount + 1 },
+    post,
     { new: true }
   ); //thrid params, new:true required for updating
 
