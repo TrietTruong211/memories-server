@@ -4,11 +4,55 @@ import PostMessage from "../models/postMessage.js";
 import mongoose from "mongoose";
 
 export const getPosts = async (req, res) => {
+  const { page } = req.query;
   //finding something takes time, hence async
   try {
-    const postMessages = await PostMessage.find(); //find takes time, hence await
+    const LIMIT = 8; //limit how many posts per page
+    //Calculate the starting index of this page, to get only posts for this page
+    const startIndex = (Number(page) - 1) * LIMIT; //page is a string when passed through to server, hence convert that to number again
+    const total = await PostMessage.countDocuments({});
+    //find takes time, hence await
+    const posts = await PostMessage.find()
+      .sort({ _id: -1 }) //sort({ _id: -1 }) = sort from newest to oldest
+      .limit(LIMIT) // return limited number of posts per page
+      .skip(startIndex); // skip() to skip getting posts from pages we already have
+
     // console.log(postMessages);
-    res.status(200).json(postMessages);
+    // returning the posts with the current page and total number of pages
+    res.status(200).json({
+      data: posts,
+      currentPage: Number(page),
+      numberOfPages: Math.ceil(total / LIMIT),
+    });
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+export const getPost = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const post = await PostMessage.findById(id);
+    res.status(200).json(post);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+// params and query are different in req
+// QUERY -> /posts?page=1 -> page = 1
+// PARAMS -> /posts/123 -> id = 123
+export const getPostBySearch = async (req, res) => {
+  const { searchQuery, tags } = req.query;
+
+  try {
+    const title = new RegExp(searchQuery, "i"); //turn into regular expression, 'i' = ignore case, everything become lowercase
+    console.log(req);
+    const posts = await PostMessage.find({
+      $or: [{ title }, { tags: { $in: tags.split(",") } }],
+    }); //$or = match either or, $in = is any in the array equal to
+    res.json({ data: posts });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -88,6 +132,20 @@ export const likePost = async (req, res) => {
     post,
     { new: true }
   ); //thrid params, new:true required for updating
+
+  res.json(updatedPost);
+};
+
+export const commentPost = async (req, res) => {
+  const { id } = req.params; //get id of post
+  const { comment } = req.body; //get the comment
+
+  const post = await PostMessage.findById(id);
+  post.comments.push(comment);
+
+  const updatedPost = await PostMessage.findByIdAndUpdate(id, post, {
+    new: true,
+  });
 
   res.json(updatedPost);
 };
